@@ -1,12 +1,12 @@
 from __future__ import print_function
-# -- JOB PARAMS -------------------------
-# ----------------------------------------
+
+### NOTE: Currently only for GPU jobs ###
+
+# job params ----------------------------
 
 VERBOSE = 2      # 0, 1, or 2
-JOB_TYPE = 'cpu' # cpu or gpu
-N_CORES = 1
 
-
+# python script to run and argument grid
 py_fn = 'return_args.py'
 arg_grid = {
                 '--int'         : [1,2,3], 
@@ -15,21 +15,23 @@ arg_grid = {
                 '--include_flag': [True, False] 
             }
 
-# ----------------------------------------
-# ----------------------------------------
+# sbatch parameters (overrides defaults)
+sbatch_args = {
+    'minutes': 1
+}
 
-# basic error checks
 
+# basic error checks ---------------------
 # make sure valid py file is given
 if '.py' not in py_fn:
     print("ERROR -- '"+py_fn+"' not a python file")    
     exit()
 
-# do all importing here    
+# do all importing here ------------------    
 import os
 from itertools import product
 
-# helper functions
+# helper functions -----------------------
 
 def is_bool(object):
     return isinstance(object, bool)
@@ -51,6 +53,30 @@ def flatten_grid(grid):
 
     return flat_grid
 
+def get_sbatch_cmd(minutes=60, email=''):
+    #!/usr/bin/env bash
+    #SBATCH -p all
+    #SBATCH -N 1 # node count
+    #SBATCH --ntasks-per-node=1
+    #SBATCH --gres=gpu:1
+    #SBATCH --mem=16000
+    #SBATCH --time=350
+    #SBATCH --mail-type=begin
+    #SBATCH --mail-type=end
+    #SBATCH --mail-user=yourNetID@princeton.edu
+
+    cmd = 'sbatch '
+    cmd += '-p all '
+    cmd += '-N 1 '
+    cmd += '--ntasks-per-node=1 '
+    cmd += '--gres=gpu:1 '
+    cmd += '--mem=16000 '
+    cmd += '--time=' + str(minutes)
+
+    return cmd
+
+
+
 # basic start of the command 
 cmd = 'python '
 cmd += py_fn + ' '
@@ -62,17 +88,31 @@ flat_grid = flatten_grid(arg_grid)
 for params in flat_grid:
     # the current command is the base plus
     # the current param set
-    curr_cmd = cmd
+    py_cmd = cmd
 
     for arg in params.keys():
         value = params[arg]
         if not is_bool(value):
-            curr_cmd += arg + ' ' + str(value) + ' '
+            py_cmd += arg + ' ' + str(value) + ' '
         else:
-            if value: curr_cmd += arg + ' '    
+            if value: py_cmd += arg + ' '    
             
-    if VERBOSE > 1: print(curr_cmd)
-    os.system(curr_cmd)
+    if VERBOSE > 1: print(py_cmd)
+
+    sbatch_cmd = get_sbatch_cmd(**sbatch_args) 
+    if VERBOSE > 1: print(sbatch_cmd)
+
+    full_cmd = sbatch_cmd
+    full_cmd += ' --wrap "'
+    full_cmd += py_cmd[:-1] + '"'
+
+    
+    if VERBOSE > 1: 
+        print('')
+        print(full_cmd)
+    
+    os.system(full_cmd)
+    break
 
 
 
