@@ -97,10 +97,10 @@ for params in flat_grid:
         else:
             if value: py_cmd += arg + ' '    
             
-    if VERBOSE > 1: print(py_cmd)
+    #if VERBOSE > 1: print(py_cmd)
 
     sbatch_cmd = get_sbatch_cmd(**sbatch_args) 
-    if VERBOSE > 1: print(sbatch_cmd)
+    #if VERBOSE > 1: print(sbatch_cmd)
 
     full_cmd = sbatch_cmd
     full_cmd += ' --wrap "'
@@ -112,7 +112,7 @@ for params in flat_grid:
         print(full_cmd)
     
     os.system(full_cmd)
-    break
+    #break
 
 
 
