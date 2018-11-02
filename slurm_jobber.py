@@ -4,15 +4,16 @@ from __future__ import print_function
 
 # job params ----------------------------
 
+TEST_MODE = True
 VERBOSE = 2      # 0, 1, or 2
 
 # python script to run and argument grid
 py_fn = 'return_args.py'
 arg_grid = {
-                '--int'         : [1,2,3], 
-                '--float'       : [0.1, 0.2, 0.3],
-                '--str'         : ['a','b','c'],
-                '--include_flag': [True, False] 
+                'int'         : [1,2,3], 
+                'float'       : [0.1, 0.2, 0.3],
+                'str'         : ['a','b','c'],
+                'include_flag': [True, False] 
             }
 
 # sbatch parameters (overrides defaults)
@@ -53,7 +54,8 @@ def flatten_grid(grid):
 
     return flat_grid
 
-def get_sbatch_cmd(minutes=60, email=''):
+def get_sbatch_cmd(py_params,
+                   minutes=60, email=''):
     #!/usr/bin/env bash
     #SBATCH -p all
     #SBATCH -N 1 # node count
@@ -71,7 +73,16 @@ def get_sbatch_cmd(minutes=60, email=''):
     cmd += '--ntasks-per-node=1 '
     cmd += '--gres=gpu:1 '
     cmd += '--mem=16000 '
-    cmd += '--time=' + str(minutes)
+    cmd += '--time=' + str(minutes) + ' '
+
+    out_fn = ''
+    for arg in py_params.keys():
+        value = params[arg]
+        if len(str(value)) < 10:
+            out_fn += arg + '_' + str(value) + '_' 
+    out_fn += '.out'
+
+    cmd += '--output ' + out_fn
 
     return cmd
 
@@ -93,26 +104,24 @@ for params in flat_grid:
     for arg in params.keys():
         value = params[arg]
         if not is_bool(value):
-            py_cmd += arg + ' ' + str(value) + ' '
+            py_cmd += '--'+arg + ' ' + str(value) + ' '
         else:
-            if value: py_cmd += arg + ' '    
+            if value: py_cmd += '--'+arg + ' '    
             
     #if VERBOSE > 1: print(py_cmd)
 
-    sbatch_cmd = get_sbatch_cmd(**sbatch_args) 
+    sbatch_cmd = get_sbatch_cmd(params, **sbatch_args) 
     #if VERBOSE > 1: print(sbatch_cmd)
 
     full_cmd = sbatch_cmd
     full_cmd += ' --wrap "'
     full_cmd += py_cmd[:-1] + '"'
-
     
     if VERBOSE > 1: 
         print('')
         print(full_cmd)
-    
-    os.system(full_cmd)
-    #break
+
+    if not TEST_MODE: os.system(full_cmd)
 
 
 
