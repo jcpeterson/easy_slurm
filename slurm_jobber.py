@@ -2,13 +2,15 @@ from __future__ import print_function
 # -- JOB PARAMS -------------------------
 # ----------------------------------------
 
-VERBOSE = 2 # can be 0, 1, or 2
+VERBOSE = 2      # 0, 1, or 2
+JOB_TYPE = 'cpu' # cpu or gpu
+N_CORES = 1
+
 
 py_fn = 'return_args.py'
 arg_grid = {
                 '--int'         : [1,2,3], 
                 '--float'       : [0.1, 0.2, 0.3],
-                #'--bool'       : [True, False],
                 '--str'         : ['a','b','c'],
                 '--include_flag': [True, False] 
             }
@@ -22,15 +24,8 @@ arg_grid = {
 if '.py' not in py_fn:
     print("ERROR -- '"+py_fn+"' not a python file")    
     exit()
-    
-# make sure boolean args are coded using the 
-# store_true convention and not with strings
-#for key in arg_grid.keys():
-#    for item in arg_grid[key]:
-#        if isinstance(item, bool):
-#            print("ERROR -- '"+key+"' contains bools!")
-#            exit()
 
+# do all importing here    
 import os
 from itertools import product
 
