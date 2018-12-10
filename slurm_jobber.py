@@ -55,33 +55,37 @@ def flatten_grid(grid):
     return flat_grid
 
 def get_sbatch_cmd(py_params,
-                   minutes=60, email=''):
-    #!/usr/bin/env bash
-    #SBATCH -p all
-    #SBATCH -N 1 # node count
-    #SBATCH --ntasks-per-node=1
-    #SBATCH --gres=gpu:1
-    #SBATCH --mem=16000
-    #SBATCH --time=350
-    #SBATCH --mail-type=begin
-    #SBATCH --mail-type=end
-    #SBATCH --mail-user=yourNetID@princeton.edu
+                   minutes=60, n_gpus=1, 
+                   mem=17000, email=''):
 
+    """ Create sbatch command; return as
+        a large string object.
+    """    
     cmd = 'sbatch '
+
+    # hardware specs
     cmd += '-p all '
     cmd += '-N 1 '
     cmd += '--ntasks-per-node=1 '
-    cmd += '--gres=gpu:1 '
-    cmd += '--mem=16000 '
+    if n_gpus > 0:
+        cmd += '--gres=gpu:' + str(n_gpus) + ' '
+    cmd += '--mem=' + str(mem) + ' '
+
+    # time limit
     cmd += '--time=' + str(minutes) + ' '
 
+    # email commands
+    if email != '':
+        cmd += '--mail-type=begin,end '        
+        cmd += '--mail-user=' + email + ' '
+
+    # .out filenames made from python arg combos
     out_fn = ''
     for arg in py_params.keys():
         value = params[arg]
         if len(str(value)) < 10:
             out_fn += arg + '_' + str(value) + '_' 
     out_fn += '.out'
-
     cmd += '--output ' + out_fn
 
     return cmd
