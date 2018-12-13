@@ -99,6 +99,8 @@ cmd += py_fn + ' '
 # flatten the grid so we can iterate
 # through params with one loop
 flat_grid = flatten_grid(arg_grid)
+n_jobs = len(flat_grid)
+print(n_jobs, 'jobs to be submitted...')
 
 for params in flat_grid:
     # the current command is the base plus
@@ -127,15 +129,4 @@ for params in flat_grid:
 
     if not TEST_MODE: os.system(full_cmd)
 
-
-
-
-
-
-
-
-
-
-
-
-#
+print('Submitted', n_jobs, 'jobs')
