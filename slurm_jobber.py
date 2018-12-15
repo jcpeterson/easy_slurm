@@ -1,13 +1,21 @@
 from __future__ import print_function
+import os
+from itertools import product
 
-### NOTE: Currently only for GPU jobs ###
-
-# job params ----------------------------
+# script params -------------------------
 
 TEST_MODE = True
 VERBOSE = 2      # 0, 1, or 2
+TYPE = 'wrap'    # wrap, array, multiprog (only wrap works for now)
 
-# python script to run and argument grid
+# job params ----------------------------
+
+# if no root given, replace with os.getcwd()
+root = ''
+if root == '': 
+    root = os.getcwd()
+
+# python script its argument grid
 py_fn = 'return_args.py'
 arg_grid = {
                 'int'         : [1,2,3], 
@@ -16,11 +24,10 @@ arg_grid = {
                 'include_flag': [True, False] 
             }
 
-# sbatch parameters (overrides defaults)
+# sbatch param (override defaults) ------
 sbatch_args = {
     'minutes': 1
 }
-
 
 # basic error checks ---------------------
 # make sure valid py file is given
@@ -28,9 +35,6 @@ if '.py' not in py_fn:
     print("ERROR -- '"+py_fn+"' not a python file")    
     exit()
 
-# do all importing here ------------------    
-import os
-from itertools import product
 
 # helper functions -----------------------
 
@@ -54,37 +58,38 @@ def flatten_grid(grid):
 
     return flat_grid
 
-def get_sbatch_cmd(py_params,
-                   minutes=60, n_gpus=1, 
-                   mem=17000, email=''):
+def get_sbatch_cmd(py_params, email='',
+                   minutes=60, n_gpus=1,
+                   mem=17000, cores=1):
 
     """ Create sbatch command; return as
         a large string object.
-    """    
+    """
     cmd = 'sbatch '
 
     # hardware specs
     cmd += '-p all '
     cmd += '-N 1 '
     cmd += '--ntasks-per-node=1 '
+    cmd += '--cpus-per-task=' + str(cores) + ' '
     if n_gpus > 0:
         cmd += '--gres=gpu:' + str(n_gpus) + ' '
-    cmd += '--mem=' + str(mem) + ' '
+    if mem != 0: cmd += '--mem=' + str(mem) + ' '
 
     # time limit
     cmd += '--time=' + str(minutes) + ' '
 
     # email commands
     if email != '':
-        cmd += '--mail-type=begin,end '        
+        cmd += '--mail-type=begin,end '
         cmd += '--mail-user=' + email + ' '
 
     # .out filenames made from python arg combos
-    out_fn = ''
+    out_fn = 'out_files/'
     for arg in py_params.keys():
         value = params[arg]
         if len(str(value)) < 10:
-            out_fn += arg + '_' + str(value) + '_' 
+            out_fn += arg + '_' + str(value) + '_'
     out_fn += '.out'
     cmd += '--output ' + out_fn
 
@@ -92,17 +97,20 @@ def get_sbatch_cmd(py_params,
 
 
 
-# basic start of the command 
-cmd = 'python '
+# basic start of the command
+cmd = 'python -u ./'
 cmd += py_fn + ' '
 
 # flatten the grid so we can iterate
 # through params with one loop
 flat_grid = flatten_grid(arg_grid)
 n_jobs = len(flat_grid)
-print(n_jobs, 'jobs to be submitted...')
 
-for params in flat_grid:
+if VERBOSE > 0:
+    print('Submitting', n_jobs, 'jobs...')
+
+# loop to construct each job/task
+for i, params in enumerate(flat_grid):
     # the current command is the base plus
     # the current param set
     py_cmd = cmd
@@ -113,18 +121,16 @@ for params in flat_grid:
             py_cmd += '--'+arg + ' ' + str(value) + ' '
         else:
             if value: py_cmd += '--'+arg + ' '    
-            
-    #if VERBOSE > 1: print(py_cmd)
-
-    sbatch_cmd = get_sbatch_cmd(params, **sbatch_args) 
-    #if VERBOSE > 1: print(sbatch_cmd)
+    
+    sbatch_cmd = get_sbatch_cmd(params, **sbatch_args)
 
     full_cmd = sbatch_cmd
     full_cmd += ' --wrap "'
     full_cmd += py_cmd[:-1] + '"'
     
-    if VERBOSE > 1: 
+    if VERBOSE > 1:
         print('')
+        print('Job', i+1)
         print(full_cmd)
 
     if not TEST_MODE: os.system(full_cmd)
