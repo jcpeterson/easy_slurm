@@ -169,47 +169,6 @@ def get_out_fn(py_params, mode=MODE,
     else:
         return out_fn
 
-# def get_sbatch_cmd(py_params,
-#                    email='',
-#                    minutes=60,
-#                    n_gpus=1,
-#                    mem=17000,
-#                    cores=1):
-
-#     """ Create sbatch command; return as
-#         a large string object.
-#     """
-#     cmd = 'sbatch '
-
-#     # hardware specs
-#     cmd += '-p all '
-#     cmd += '-N 1 '
-#     cmd += '--ntasks-per-node=1 '
-#     cmd += '--cpus-per-task=' + str(cores) + ' '
-#     if n_gpus > 0:
-#         cmd += '--gres=gpu:' + str(n_gpus) + ' '
-#     if mem != 0: cmd += '--mem=' + str(mem) + ' '
-
-#     # time limit
-#     cmd += '--time=' + str(minutes) + ' '
-
-#     # email commands
-#     if email != '':
-#         cmd += '--mail-type=begin,end '
-#         cmd += '--mail-user=' + email + ' '
-
-#     # .out filenames made from python arg combos
-#     out_fn = 'out_files/'
-#     for arg in py_params.keys():
-#         value = params[arg]
-#         if len(str(value)) < 10:
-#             out_fn += arg + '_' + str(value) + '_'
-#     out_fn += '.out'
-#     cmd += '--output ' + out_fn
-
-#     return cmd
-
-
 # basic start of the command
 py_cmd_base = 'python -u '
 py_cmd_base += os.path.join(ROOT, py_fn) + ' '
@@ -232,8 +191,6 @@ if MODE == 'multiprog':
     print('')
     if VERBOSE > 0:
         for line in sbatch_cmd: print(line)
-
-# if MODE == 'multiprog': exit()
 
 ######################################
 # MAIN LOOP: construct each job/task #
