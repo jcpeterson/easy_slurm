@@ -63,7 +63,7 @@ def update_cmd(curr_cmd, new_cmd,
         return curr_cmd + new_cmd + end
 
     elif mode=='multiprog':
-        return curr_cmd + ['#SBATCH ' + new_cmd + end]
+        return curr_cmd + ['#SBATCH {}{}'.format(new_cmd, end)]
 
 def get_sbatch_cmd(n_tasks=1,
                    mode=MODE,
@@ -83,24 +83,25 @@ def get_sbatch_cmd(n_tasks=1,
 
     # hardware specs
     if mode == 'wrap':
-        cmd = update_cmd(cmd, '-N ' + str(n_tasks))
+        # n_tasks / ntasks seem reversed here
+        cmd = update_cmd(cmd, '-N {}'.format(n_tasks))
+        cmd = update_cmd(cmd, '-c {}'.format(cores))
         cmd = update_cmd(cmd, '--ntasks-per-node=1')
-        cmd = update_cmd(cmd, '--cpus-per-task=' + str(cores))
     elif mode == 'multiprog':
-        cmd = update_cmd(cmd, '-n ' + str(n_tasks))  
+        cmd = update_cmd(cmd, '-n {}'.format(n_tasks) + str(n_tasks))  
 
     if n_gpus > 0:
-        cmd = update_cmd(cmd, '--gres=gpu:' + str(n_gpus))
+        cmd = update_cmd(cmd, '--gres=gpu:{}'.format(n_gpus))
     if mem > 0: 
-        cmd = update_cmd(cmd, '--mem=' + str(mem))
+        cmd = update_cmd(cmd, '--mem={}'.format(mem))
 
     # time limit
-    cmd = update_cmd(cmd, '-t ' + str(minutes))
+    cmd = update_cmd(cmd, '-t {}'.format(minutes))
 
     # email commands
     if email != '':
         cmd = update_cmd(cmd, '--mail-type=begin,end')
-        cmd = update_cmd(cmd, '--mail-user=' + email)
+        cmd = update_cmd(cmd, '--mail-user={}'.format(email))
 
     return cmd
 
@@ -119,7 +120,7 @@ def get_out_fn(py_params, mode=MODE,
             mpid = ''
         else:
             mpid = str(mpid)
-        out_fn = py_fn[:-3] + '_multiprog'+mpid+'_'
+            out_fn = '{}_multiprog{}_'.format(py_fn[:-3], mpid)
 
     for k, key in enumerate(py_params.keys()):
 
