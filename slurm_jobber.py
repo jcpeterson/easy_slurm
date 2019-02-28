@@ -48,9 +48,9 @@ def expand_py_flags(cmd, params):
     for arg in params.keys():
         value = params[arg]
         if not is_bool(value):
-            cmd += '-' + arg + ' ' + str(value) + ' '
+            cmd = "{} --{} {}".format(cmd, arg, value)
         else:
-            if value: cmd += '-' + arg + ' ' 
+            if value: cmd = "{} --{}".format(cmd, arg)
     return cmd
 
 def update_cmd(curr_cmd, new_cmd, 
@@ -61,6 +61,7 @@ def update_cmd(curr_cmd, new_cmd,
 
     if mode=='wrap':
         return curr_cmd + new_cmd + end
+
     elif mode=='multiprog':
         return curr_cmd + ['#SBATCH ' + new_cmd + end]
 
@@ -148,8 +149,8 @@ def get_out_fn(py_params, mode=MODE,
         return out_fn
 
 # basic start of the command
-py_cmd_base = 'python -u '
-py_cmd_base += os.path.join(ROOT, py_fn) + ' '
+script_path = os.path.join(ROOT, py_fn)
+py_cmd_base = 'python -u {}'.format(script_path)
 
 # flatten the grid so we can iterate
 # through params with one loop
@@ -176,8 +177,7 @@ for i, params in enumerate(flat_grid):
 
     if MODE == 'wrap':
         full_cmd = get_sbatch_cmd() + get_out_fn(params)
-        full_cmd += ' --wrap "'
-        full_cmd += py_cmd[:-1] + '"'
+        full_cmd = '{} --wrap "{}"'.format(full_cmd, py_cmd)
     
         if VERBOSE > 1:
             print('JOB', str(i+1)+':', full_cmd)

@@ -8,12 +8,12 @@
 
 	"argument_grid":
 		{
-		    "int"         : [1, 2, 3], 
-		    "float"       : [0.1, 0.2, 0.3],
-		    "str"         : ["a", "b", "c"],
-		    "include_flag": [true, false] 
+		    "int"         : [1, 2], 
+		    "float"       : [0.1, 0.2],
+		    "str"         : ["a", "b"],
+		    "include_flag": [true, false]
 		 },
-		 
+
 	"sbatch_args":
 	 	{
 		    "minutes": 3,
