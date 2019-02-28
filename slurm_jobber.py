@@ -1,82 +1,56 @@
 from __future__ import print_function
 import os
-from itertools import product
+import json
+#import math
+import argparse
+from datetime import datetime
 
-#########################################
+from utils import *
+
+id_format = '%Y-%m-%d_%H-%M-%S'
+search_id = datetime.now().strftime(id_format)
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "-c", 
+    "--config", 
+    type=str,
+    default="config.json"
+)
+args = parser.parse_args()
+
+# load config from json file
+with open(args.config) as f:
+    config = json.load(f)
+
 # script params -------------------------
 
-TEST_MODE = True      # submit jobs or just observe output
-VERBOSE = 2           # 0, 1, or 2
-MODE = 'wrap'         # wrap, array, multiprog (only wrap works for now)
+TEST_MODE = config['test_mode']                # submit jobs or just observe output
+VERBOSE = config['verbose']                    # 0, 1, or 2
+MODE = config['mode']                          # wrap, array, multiprog (only wrap works for now)
+MP_BATCH_SIZE = config['multiprog_batch_size']
 
 # job params ----------------------------
 
-# if no root given, replace with os.getcwd()
 ROOT = ''
-if ROOT == '': ROOT = os.getcwd()
-
-OUT_DIR = 'out_files'
+OUT_DIR = search_id
 
 # python script its argument grid
-py_fn = 'return_args.py'
-arg_grid = {
-                'int'         : [1,2], 
-                'float'       : [0.1, 0.2],
-                'str'         : ['a','b'],
-                'include_flag': [True, False] 
-            }
+py_fn = config['python_script']
+arg_grid = config['argument_grid']
 
-# sbatch param (override defaults) ------
-sbatch_args = {
-    'minutes': 1
-}
-#########################################
+# sbatch param (override defaults)
+sbatch_args = config['sbatch_args']
 
-# basic error checks ---------------------
-# make sure valid py file is given
-if '.py' not in py_fn:
-    print('ERROR -- '+py_fn+' not a python file')    
-    exit()
-
-# helper functions -----------------------
-
-def is_bool(object):
-    return isinstance(object, bool)
-
-def list2txt(lines, filename):
-    """ Save each item in a list to a
-        separate line in a text file.
-    """
-    with open(filename, 'w') as f:
-        for line in lines:
-            f.write("%s\n" % line)
-
-def flatten_grid(grid):
-    """ Flatten grid into iterable list
-        of parameter combinations. Adapted from
-        scikit-learn's ParameterGrid class. 
-    """
-    flat_grid = []
-
-    # sort the keys of a dictionary for reproducibility
-    items = sorted(grid.items())
-
-    keys, values = zip(*items)
-    for v in product(*values):
-        params = dict(zip(keys, v))
-        flat_grid.append(params)
-
-    return flat_grid
-
-# main functions -----------------------
+# core functions -----------------------
 
 def expand_py_flags(cmd, params):
     for arg in params.keys():
         value = params[arg]
         if not is_bool(value):
-            cmd += '--'+ arg + ' ' + str(value) + ' '
+            cmd += '-' + arg + ' ' + str(value) + ' '
         else:
-            if value: cmd += '--'+ arg + ' ' 
+            if value: cmd += '-' + arg + ' ' 
     return cmd
 
 def update_cmd(curr_cmd, new_cmd, 
@@ -90,7 +64,7 @@ def update_cmd(curr_cmd, new_cmd,
     elif mode=='multiprog':
         return curr_cmd + ['#SBATCH ' + new_cmd + end]
 
-def get_sbatch_cmd(grid,
+def get_sbatch_cmd(n_tasks=1,
                    mode=MODE,
                    email='',
                    minutes=60,
@@ -108,11 +82,11 @@ def get_sbatch_cmd(grid,
 
     # hardware specs
     if mode == 'wrap':
-        cmd = update_cmd(cmd, '-N 1')
+        cmd = update_cmd(cmd, '-N ' + str(n_tasks))
         cmd = update_cmd(cmd, '--ntasks-per-node=1')
         cmd = update_cmd(cmd, '--cpus-per-task=' + str(cores))
     elif mode == 'multiprog':
-        cmd = update_cmd(cmd, '-n ' + str(len(grid)))    
+        cmd = update_cmd(cmd, '-n ' + str(n_tasks))  
 
     if n_gpus > 0:
         cmd = update_cmd(cmd, '--gres=gpu:' + str(n_gpus))
@@ -131,16 +105,20 @@ def get_sbatch_cmd(grid,
 
 def get_out_fn(py_params, mode=MODE, 
                root=ROOT, out_dir=OUT_DIR,
-               just_fn=False):
+               just_fn=False, mpid=None):
     """ Create slurm .out filename from python
         flags. If more than one flag value in
         py_params dict, all are included.
     """
 
     if mode == 'wrap':
-        out_fn = ''      
+        out_fn = ''
     elif mode == 'multiprog':
-        out_fn = py_fn[:-3] + '_multiprog_'
+        if mpid is None: 
+            mpid = ''
+        else:
+            mpid = str(mpid)
+        out_fn = py_fn[:-3] + '_multiprog'+mpid+'_'
 
     for k, key in enumerate(py_params.keys()):
 
@@ -181,24 +159,14 @@ n_jobs = len(flat_grid)
 if VERBOSE > 0:
     print('Submitting', n_jobs, 'jobs...')
 
-sbatch_cmd = get_sbatch_cmd(flat_grid, **sbatch_args)
-
-if MODE == 'multiprog':
-    out_fn = get_out_fn(arg_grid)
-    sbatch_cmd = update_cmd(sbatch_cmd, out_fn)
-    conf_fn = get_out_fn(arg_grid, just_fn=True) + '.conf'
-    sbatch_cmd.append('srun --multi-prog '+conf_fn)
-    print('')
-    if VERBOSE > 0:
-        for line in sbatch_cmd: print(line)
+# create output dir if needed
+if (not os.path.exists(OUT_DIR) and
+    not TEST_MODE):
+    os.makedirs(OUT_DIR)
 
 ######################################
 # MAIN LOOP: construct each job/task #
 ######################################
-
-if MODE == 'multiprog':
-    py_cmd_list = []
-    print('')
 
 for i, params in enumerate(flat_grid):
 
@@ -207,7 +175,7 @@ for i, params in enumerate(flat_grid):
     py_cmd = expand_py_flags(py_cmd, params)
 
     if MODE == 'wrap':
-        full_cmd = sbatch_cmd + get_out_fn(params)
+        full_cmd = get_sbatch_cmd() + get_out_fn(params)
         full_cmd += ' --wrap "'
         full_cmd += py_cmd[:-1] + '"'
     
@@ -219,13 +187,45 @@ for i, params in enumerate(flat_grid):
             os.system(full_cmd)
 
     if MODE == 'multiprog':
-        py_cmd_list.append(str(i) + ' ' + py_cmd)
-        if VERBOSE > 1:
-            print(str(i) + ' ' + py_cmd)
 
-if not TEST_MODE:
-    if MODE == 'multiprog':
-        list2txt(sbatch_cmd, 'RUN.cmd')
-        list2txt(py_cmd_list, conf_fn)
-    if VERBOSE > 0:
-        print('Submitted', n_jobs, 'jobs.')
+        if i % MP_BATCH_SIZE == 0:
+            if i != 0:
+                if not TEST_MODE:
+                    list2txt(curr_sbatch_cmd, 
+                        os.path.join(OUT_DIR, 'RUN_'+str(file_idx)+'.cmd'))
+                    list2txt(py_cmd_list, 
+                        os.path.join(OUT_DIR, conf_fn))
+                    os.system('sbatch ' + os.path.join(OUT_DIR, 'RUN_'+str(file_idx)+'.cmd'))
+
+            file_idx = int(i / MP_BATCH_SIZE)
+
+            out_fn = get_out_fn(arg_grid, mpid=file_idx)
+            conf_fn = get_out_fn(arg_grid, just_fn=True, mpid=file_idx) + '.conf'
+
+            curr_sbatch_cmd = get_sbatch_cmd(n_tasks=MP_BATCH_SIZE,
+                                             **sbatch_args)
+            curr_sbatch_cmd = update_cmd(curr_sbatch_cmd, out_fn)
+            curr_sbatch_cmd.append('') 
+            curr_sbatch_cmd.append('srun --wait 0 --multi-prog ' + os.path.join(OUT_DIR, conf_fn))
+
+            py_cmd_list = []
+            py_cmd_list.append(str(i % MP_BATCH_SIZE) + ' ' + py_cmd)
+        else:
+            py_cmd_list.append(str(i % MP_BATCH_SIZE) + ' ' + py_cmd)
+
+if len(flat_grid) % MP_BATCH_SIZE != 0:
+    if not TEST_MODE:
+        curr_sbatch_cmd = get_sbatch_cmd(n_tasks=len(flat_grid) - (MP_BATCH_SIZE*file_idx),
+                                         **sbatch_args)
+        curr_sbatch_cmd = update_cmd(curr_sbatch_cmd, out_fn)
+        curr_sbatch_cmd.append('') 
+        curr_sbatch_cmd.append('srun --wait 0 --multi-prog ' + os.path.join(OUT_DIR, conf_fn))
+
+        list2txt(curr_sbatch_cmd, 
+            os.path.join(OUT_DIR, 'RUN_'+str(file_idx)+'.cmd'))
+        list2txt(py_cmd_list, 
+            os.path.join(OUT_DIR, conf_fn))
+        os.system('sbatch ' + os.path.join(OUT_DIR, 'RUN_'+str(file_idx)+'.cmd'))
+
+if VERBOSE > 0:
+    print('Submitted', n_jobs, 'jobs.')

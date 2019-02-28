@@ -1,0 +1,23 @@
+{	
+	"python_script": "return_args.py",
+
+	"test_mode": true,
+	"verbose": 2,
+	"mode": "wrap",
+	"multiprog_batch_size": 320,
+
+	"argument_grid":
+		{
+		    "int"         : [1, 2, 3], 
+		    "float"       : [0.1, 0.2, 0.3],
+		    "str"         : ["a", "b", "c"],
+		    "include_flag": [true, false] 
+		 },
+		 
+	"sbatch_args":
+	 	{
+		    "minutes": 3,
+		    "n_gpus" : 0,
+		    "mem"    : 0
+		}
+}
