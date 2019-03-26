@@ -88,7 +88,7 @@ def get_sbatch_cmd(n_tasks=1,
         cmd = update_cmd(cmd, '-c {}'.format(cores))
         cmd = update_cmd(cmd, '--ntasks-per-node=1')
     elif mode == 'multiprog':
-        cmd = update_cmd(cmd, '-n {}'.format(n_tasks) + str(n_tasks))  
+        cmd = update_cmd(cmd, '-n {}'.format(n_tasks))  
 
     if n_gpus > 0:
         cmd = update_cmd(cmd, '--gres=gpu:{}'.format(n_gpus))
