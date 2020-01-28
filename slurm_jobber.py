@@ -177,7 +177,7 @@ for i, params in enumerate(flat_grid):
     py_cmd = expand_py_flags(py_cmd, params)
 
     if MODE == 'wrap':
-        full_cmd = get_sbatch_cmd() + get_out_fn(params)
+        full_cmd = get_sbatch_cmd(**sbatch_args) + get_out_fn(params)
         full_cmd = '{} --wrap "{}"'.format(full_cmd, py_cmd)
     
         if VERBOSE > 1:
